@@ -1,0 +1,65 @@
+{{- if .Values.elastic.enabled -}}
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: {{ include "eck.fullname" . }}
+  labels:
+    {{- include "eck.labels" . | nindent 4 }}
+spec:
+  version: {{ .Values.elastic.version }}
+  nodeSets:
+    - name: {{ .Values.elastic.nodeSet.name }}
+      count: {{ .Values.elastic.nodeSet.count }}
+      {{- with .Values.elastic.nodeSet.config }}
+      config:
+        node.store.allow_mmap: false
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.elastic.nodeSet.volumeClaim }}
+      volumeClaimTemplates:
+      - metadata:
+          name: elasticsearch-data
+        spec:
+          {{- toYaml . | nindent 10 }}
+      {{- end }}
+      podTemplate:
+        spec:
+          containers:
+            - name: elasticsearch
+              env:
+                - name: ES_JAVA_OPTS
+                  value: {{ .Values.elastic.nodeSet.javaheap }}
+              {{- with .Values.elastic.nodeSet.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          {{- if .Values.elastic.nodeSet.enableAntiAffinity }}
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    elasticsearch.k8s.elastic.co/statefulset-name: {{ include "eck.fullname" . }}
+                topologyKey: kubernetes.io/hostname
+          {{- end }}
+    {{- if .Values.elastic.nodeSet.quorum.enabled }}
+    - name: {{ .Values.elastic.nodeSet.name }}-quorum
+      count: 1
+      config:
+        node.roles: ["master"]
+        node.store.allow_mmap: false
+      podTemplate:
+        spec:
+          containers:
+            - name: elasticsearch
+              env:
+                - name: ES_JAVA_OPTS
+                  value: {{ .Values.elastic.nodeSet.quorum.javaheap }}
+              {{- with .Values.elastic.nodeSet.quorum.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+
+
+    {{- end }}
+{{- end }}

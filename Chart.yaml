@@ -1,0 +1,10 @@
+
+apiVersion: v2
+name: eck
+description: A Helm chart for deploying ECK
+
+type: application
+
+version: 1.0.1
+
+appVersion: 7.10.0
